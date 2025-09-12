@@ -19,9 +19,8 @@ Generates Gleam helper functions that embed compiled translation files (MO forma
 
 Add `kielet_gen` to your Gleam project:
 
-```toml
-[dependencies]
-kielet_gen = ">= 1.0.0 and < 2.0.0"
+```sh
+gleam add kielet_gen --dev
 ```
 
 ## Usage
