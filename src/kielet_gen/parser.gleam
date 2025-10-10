@@ -1,10 +1,116 @@
 import glance
+import gleam/dict
 import gleam/int
 import gleam/io
 import gleam/list
 import gleam/option
 import gleam/string
 import simplifile
+
+// Type to represent a unique translation entry
+pub type EntryKey {
+  GettextEntry(msgid: String)
+  NGettextEntry(msgid: String, msgid_plural: String)
+  PGettextEntry(msgctxt: String, msgid: String)
+  NPGettextEntry(msgctxt: String, msgid: String, msgid_plural: String)
+}
+
+// Data for a translation entry including all source locations
+pub type EntryData {
+  EntryData(key: EntryKey, locations: List(#(String, Int)))
+}
+
+// Convert an EntryKey to a string for use as Dict key
+fn entry_key_to_string(key: EntryKey) -> String {
+  case key {
+    GettextEntry(msgid) -> "gettext:" <> msgid
+    NGettextEntry(msgid, msgid_plural) ->
+      "ngettext:" <> msgid <> "|" <> msgid_plural
+    PGettextEntry(msgctxt, msgid) -> "pgettext:" <> msgctxt <> "|" <> msgid
+    NPGettextEntry(msgctxt, msgid, msgid_plural) ->
+      "npgettext:" <> msgctxt <> "|" <> msgid <> "|" <> msgid_plural
+  }
+}
+
+// Deduplicate entries by merging locations for identical keys
+fn deduplicate_entries(entries: List(EntryData)) -> List(EntryData) {
+  // Build a dict with all entries
+  let entries_dict =
+    list.fold(entries, dict.new(), fn(acc, entry) {
+      let key_str = entry_key_to_string(entry.key)
+      case dict.get(acc, key_str) {
+        Ok(existing_entry) -> {
+          // Merge locations
+          let EntryData(existing_key, existing_locations) = existing_entry
+          let merged =
+            EntryData(
+              key: existing_key,
+              locations: list.append(existing_locations, entry.locations),
+            )
+          dict.insert(acc, key_str, merged)
+        }
+        Error(_) -> dict.insert(acc, key_str, entry)
+      }
+    })
+
+  // Convert back to list
+  dict.values(entries_dict)
+}
+
+// Write deduplicated entries to a .pot file
+fn write_pot_file(to: String, entries: List(EntryData)) -> Nil {
+  let contents =
+    entries
+    |> list.map(entry_to_pot_string)
+    |> string.join("\n")
+
+  let assert Ok(_) = simplifile.write(to: to, contents: contents)
+    as "cannot write to output file"
+
+  Nil
+}
+
+// Convert a single entry to its .pot file string representation
+fn entry_to_pot_string(entry: EntryData) -> String {
+  // Generate location comments
+  let location_comments =
+    entry.locations
+    |> list.map(fn(loc) { "#. " <> loc.0 <> ":" <> int.to_string(loc.1) })
+    |> string.join("\n")
+
+  // Generate entry content based on type
+  let entry_content = case entry.key {
+    GettextEntry(msgid) -> {
+      ["msgid " <> msgid, "msgstr " <> msgid] |> string.join("\n")
+    }
+    NGettextEntry(msgid, msgid_plural) -> {
+      [
+        "msgid " <> msgid,
+        "msgid_plural \"\"",
+        "msgstr[0] " <> msgid,
+        "msgstr[1] " <> msgid_plural,
+      ]
+      |> string.join("\n")
+    }
+    PGettextEntry(msgctxt, msgid) -> {
+      ["msgctxt " <> msgctxt, "msgid " <> msgid, "msgstr " <> msgid]
+      |> string.join("\n")
+    }
+    NPGettextEntry(msgctxt, msgid, msgid_plural) -> {
+      [
+        "msgctxt " <> msgctxt,
+        "msgid " <> msgid,
+        "msgid_plural \"\"",
+        "msgstr[0] " <> msgid,
+        "msgstr[1] " <> msgid_plural,
+      ]
+      |> string.join("\n")
+    }
+  }
+
+  // Combine location comments and entry content with blank lines
+  [location_comments, entry_content, "", ""] |> string.join("\n")
+}
 
 pub fn parse_files(to: String, files: List(String)) -> Nil {
   let path = string.split(to, "/")
@@ -14,15 +120,22 @@ pub fn parse_files(to: String, files: List(String)) -> Nil {
     |> string.join("/")
   let assert Ok(_) = simplifile.create_directory_all(directory)
     as "cannot create directory for output"
-  let assert Ok(_) = simplifile.write(to: to, contents: "")
-    as "cannot write to output file"
 
-  list.map(files, fn(file) { parse_file(to, file) })
+  // Collect all entries from all files
+  let all_entries =
+    files
+    |> list.flat_map(parse_file)
+
+  // Deduplicate entries
+  let deduplicated = deduplicate_entries(all_entries)
+
+  // Write the deduplicated entries to the output file
+  write_pot_file(to, deduplicated)
 
   Nil
 }
 
-pub fn parse_file(to: String, file: String) -> Nil {
+pub fn parse_file(file: String) -> List(EntryData) {
   // Implement parsing logic here
   io.println("Parsing file: " <> file)
   let assert Ok(contents) = simplifile.read(file) as "cannot read file"
@@ -30,93 +143,48 @@ pub fn parse_file(to: String, file: String) -> Nil {
 
   let imports_map = collect_imports(m.imports)
   let calls = collect_calls(m)
-  list.each(calls, fn(call) {
+  list.filter_map(calls, fn(call) {
     case analyze_call(call, imports_map, contents) {
       option.Some(tuple) -> {
         case tuple {
-          #(nr, "kielet.gettext", args) -> output_gettext(to, file, nr, args)
-          #(nr, "kielet.ngettext", args) -> output_ngettext(to, file, nr, args)
-          #(nr, "kielet.pgettext", args) -> output_pgettext(to, file, nr, args)
+          #(nr, "kielet.gettext", args) ->
+            Ok(output_gettext(file, nr, args))
+          #(nr, "kielet.ngettext", args) ->
+            Ok(output_ngettext(file, nr, args))
+          #(nr, "kielet.pgettext", args) ->
+            Ok(output_pgettext(file, nr, args))
           #(nr, "kielet.npgettext", args) ->
-            output_npgettext(to, file, nr, args)
-          #(_, _, _) -> Nil
+            Ok(output_npgettext(file, nr, args))
+          #(_, _, _) -> Error(Nil)
         }
       }
-      option.None -> Nil
+      option.None -> Error(Nil)
     }
   })
-  Nil
 }
 
-fn output_gettext(to: String, file: String, nr: Int, args: List(String)) -> Nil {
+fn output_gettext(file: String, nr: Int, args: List(String)) -> EntryData {
   let assert [_, a] = args as "gettext expects two arguments"
-  let contents = [
-    "#." <> file <> ":" <> int.to_string(nr),
-    "msgid " <> a,
-    "msgstr " <> a,
-    "",
-    "",
-  ]
-  let assert Ok(_) = simplifile.append(to, string.join(contents, "\n"))
-    as "cannot write to output file"
-
-  Nil
+  let key = GettextEntry(msgid: a)
+  EntryData(key: key, locations: [#(file, nr)])
 }
 
-fn output_ngettext(to: String, file: String, nr: Int, args: List(String)) -> Nil {
+fn output_ngettext(file: String, nr: Int, args: List(String)) -> EntryData {
   let assert [_, a, b, _] = args as "ngettext expects four arguments"
-  let contents = [
-    "#." <> file <> ":" <> int.to_string(nr),
-    "msgid " <> a,
-    "msgid_plural \"\"",
-    "msgstr[0] " <> a,
-    "msgstr[1] " <> b,
-    "",
-    "",
-  ]
-  let assert Ok(_) = simplifile.append(to, string.join(contents, "\n"))
-    as "cannot write to output file"
-
-  Nil
+  let key = NGettextEntry(msgid: a, msgid_plural: b)
+  EntryData(key: key, locations: [#(file, nr)])
 }
 
-fn output_pgettext(to: String, file: String, nr: Int, args: List(String)) -> Nil {
+fn output_pgettext(file: String, nr: Int, args: List(String)) -> EntryData {
   let assert [_, a, b] = args as "pgettext expects three arguments"
-  let contents = [
-    "#." <> file <> ":" <> int.to_string(nr),
-    "msgctxt " <> a,
-    "msgid " <> b,
-    "msgstr " <> b,
-    "",
-    "",
-  ]
-  let assert Ok(_) = simplifile.append(to, string.join(contents, "\n"))
-    as "cannot write to output file"
-
-  Nil
+  let key = PGettextEntry(msgctxt: a, msgid: b)
+  EntryData(key: key, locations: [#(file, nr)])
 }
 
-fn output_npgettext(
-  to: String,
-  file: String,
-  nr: Int,
-  args: List(String),
-) -> Nil {
+fn output_npgettext(file: String, nr: Int, args: List(String)) -> EntryData {
   let assert [_, a, b, c, _] = args as "npgettext expects four arguments"
-  let contents = [
-    "#." <> file <> ":" <> int.to_string(nr),
-    "msgctxt " <> a,
-    "msgid " <> b,
-    "msgid_plural \"\"",
-    "msgstr[0] " <> b,
-    "msgstr[1] " <> c,
-    "",
-    "",
-  ]
-  let assert Ok(_) = simplifile.append(to, string.join(contents, "\n"))
-    as "cannot write to output file"
-
-  Nil
+  let key = NPGettextEntry(msgctxt: a, msgid: b, msgid_plural: c)
+  EntryData(key: key, locations: [#(file, nr)])
 }
 
 // ---------------------------------------------------------------------------
