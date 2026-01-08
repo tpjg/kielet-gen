@@ -1,6 +1,5 @@
 // Test file with duplicate translation strings
-import kielet.{gettext, ngettext, pgettext}
-import kielet/context.{type Context}
+import kielet.{type Context, gettext, ngettext, pgettext}
 
 pub fn test1(ctx: Context) {
   // First occurrence of "Hello"

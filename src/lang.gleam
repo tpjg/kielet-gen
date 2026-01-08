@@ -1,6 +1,6 @@
 // this file is just here to make test/sample.gleam compile
-import kielet/database.{type Database}
+import kielet.{type Database}
 
 pub fn database() -> Database {
-  database.new()
+  kielet.new_database()
 }

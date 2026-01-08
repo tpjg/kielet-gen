@@ -327,8 +327,13 @@ fn collect_expression(expr: glance.Expression) -> List(glance.Expression) {
       list.flatten([collect_expression(left), collect_expression(right)])
     glance.NegateInt(_, value) -> collect_expression(value)
     glance.NegateBool(_, value) -> collect_expression(value)
-    glance.Echo(_, expression) ->
-      option.map(expression, collect_expression) |> option.unwrap([])
+    glance.Echo(_, expression, message) -> {
+      let expr_calls =
+        option.map(expression, collect_expression) |> option.unwrap([])
+      let msg_calls =
+        option.map(message, collect_expression) |> option.unwrap([])
+      list.flatten([expr_calls, msg_calls])
+    }
     glance.Panic(_, message) ->
       option.map(message, collect_expression) |> option.unwrap([])
     glance.Todo(_, message) ->
@@ -341,8 +346,8 @@ fn collect_field_expr(
   field: glance.Field(glance.Expression),
 ) -> List(glance.Expression) {
   case field {
-    glance.LabelledField(_, item) -> collect_expression(item)
-    glance.ShorthandField(_) -> []
+    glance.LabelledField(_, _, item) -> collect_expression(item)
+    glance.ShorthandField(_, _) -> []
     glance.UnlabelledField(item) -> collect_expression(item)
   }
 }
@@ -399,9 +404,9 @@ fn stringify_field(
   field: glance.Field(glance.Expression),
 ) -> String {
   case field {
-    glance.LabelledField(label, expr) ->
-      label <> ": " <> stringify_expr(imports, expr)
-    glance.ShorthandField(label) -> label
+    glance.LabelledField(label, _, item) ->
+      label <> ": " <> stringify_expr(imports, item)
+    glance.ShorthandField(label, _) -> label
     glance.UnlabelledField(expr) -> stringify_expr(imports, expr)
   }
 }

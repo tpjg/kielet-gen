@@ -2,8 +2,9 @@
 import gleam/int
 import gleam/io
 import gleam/string
-import kielet.{gettext as g_, ngettext as n_, npgettext as np_, pgettext as p_}
-import kielet/context.{Context}
+import kielet.{
+  Context, gettext as g_, ngettext as n_, npgettext as np_, pgettext as p_,
+}
 import lang
 
 pub fn lang_test() {

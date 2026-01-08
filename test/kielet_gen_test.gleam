@@ -17,8 +17,8 @@ pub fn coder_test() {
   let assert Ok(f) = simplifile.read("test/output/lang.gleam")
   let assert Ok(m) = glance.module(f)
 
-  // Check there are at least 3 imports (gleam/bit_array, kielet/database, kielet/language)
-  assert m.imports |> list.length >= 3
+  // Check there are at least 3 imports (gleam/bit_array,kielet)
+  assert m.imports |> list.length >= 2
   // Check that the "database" function exists
   assert list.filter(m.functions, fn(def) { def.definition.name == "database" })
     |> list.length
@@ -54,9 +54,9 @@ pub fn parser_deduplication_test() {
   // Split returns n+1 parts for n occurrences, so 2 means it appears once
 
   // Check that all three source locations for "Hello" are present
-  assert string.contains(pot, "test/duplicate_sample.gleam:7")
-  assert string.contains(pot, "test/duplicate_sample.gleam:12")
-  assert string.contains(pot, "test/duplicate_sample.gleam:17")
+  assert string.contains(pot, "test/duplicate_sample.gleam:6")
+  assert string.contains(pot, "test/duplicate_sample.gleam:11")
+  assert string.contains(pot, "test/duplicate_sample.gleam:16")
 
   // Check that "One item" ngettext appears only once
   let one_item_count =
@@ -66,8 +66,8 @@ pub fn parser_deduplication_test() {
   assert one_item_count == 2
 
   // Check that both source locations for ngettext are present
-  assert string.contains(pot, "test/duplicate_sample.gleam:27")
-  assert string.contains(pot, "test/duplicate_sample.gleam:32")
+  assert string.contains(pot, "test/duplicate_sample.gleam:26")
+  assert string.contains(pot, "test/duplicate_sample.gleam:31")
 
   // Check that pgettext with context "Navigation menu" appears only once
   let file_pgettext_count =
@@ -77,12 +77,12 @@ pub fn parser_deduplication_test() {
   assert file_pgettext_count == 2
 
   // Check that both source locations for pgettext are present
-  assert string.contains(pot, "test/duplicate_sample.gleam:37")
-  assert string.contains(pot, "test/duplicate_sample.gleam:42")
+  assert string.contains(pot, "test/duplicate_sample.gleam:36")
+  assert string.contains(pot, "test/duplicate_sample.gleam:41")
 
   // Check that "Goodbye" appears (single occurrence)
   assert string.contains(pot, "msgid \"Goodbye\"")
-  assert string.contains(pot, "test/duplicate_sample.gleam:22")
+  assert string.contains(pot, "test/duplicate_sample.gleam:21")
 }
 
 /// Tests deduplication across multiple files
@@ -104,8 +104,8 @@ pub fn parser_multi_file_deduplication_test() {
   // Should appear only once
 
   // Check for locations from both files
-  assert string.contains(pot, "test/sample.gleam:13")
-  assert string.contains(pot, "test/duplicate_sample.gleam:7")
-  assert string.contains(pot, "test/duplicate_sample.gleam:12")
-  assert string.contains(pot, "test/duplicate_sample.gleam:17")
+  assert string.contains(pot, "test/sample.gleam:14")
+  assert string.contains(pot, "test/duplicate_sample.gleam:6")
+  assert string.contains(pot, "test/duplicate_sample.gleam:11")
+  assert string.contains(pot, "test/duplicate_sample.gleam:16")
 }
