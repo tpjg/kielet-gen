@@ -86,9 +86,9 @@ fn entry_to_pot_string(entry: EntryData) -> String {
     NGettextEntry(msgid, msgid_plural) -> {
       [
         "msgid " <> msgid,
-        "msgid_plural \"\"",
-        "msgstr[0] " <> msgid,
-        "msgstr[1] " <> msgid_plural,
+        "msgid_plural " <> msgid_plural,
+        "msgstr[0] \"\"",
+        "msgstr[1] \"\"",
       ]
       |> string.join("\n")
     }
@@ -100,9 +100,9 @@ fn entry_to_pot_string(entry: EntryData) -> String {
       [
         "msgctxt " <> msgctxt,
         "msgid " <> msgid,
-        "msgid_plural \"\"",
-        "msgstr[0] " <> msgid,
-        "msgstr[1] " <> msgid_plural,
+        "msgid_plural " <> msgid_plural,
+        "msgstr[0] \"\"",
+        "msgstr[1] \"\"",
       ]
       |> string.join("\n")
     }
