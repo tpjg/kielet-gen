@@ -1,0 +1,25 @@
+#. test/sample.gleam:13
+msgid "Hello"
+msgstr "Hello"
+
+
+#. test/sample.gleam:15
+msgid "That's better than a rabbit"
+msgid_plural ""
+msgstr[0] "That's better than a rabbit"
+msgstr[1] "That's better than %s rabbits"
+
+
+#. test/sample.gleam:21
+msgctxt "A physical sign with text on it"
+msgid "A sign"
+msgid_plural ""
+msgstr[0] "A sign"
+msgstr[1] "%s signs"
+
+
+#. test/sample.gleam:19
+msgctxt "Lead (the element)"
+msgid "Lead"
+msgstr "Lead"
+

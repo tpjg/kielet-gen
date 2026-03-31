@@ -81,7 +81,7 @@ fn entry_to_pot_string(entry: EntryData) -> String {
   // Generate entry content based on type
   let entry_content = case entry.key {
     GettextEntry(msgid) -> {
-      ["msgid " <> msgid, "msgstr " <> msgid] |> string.join("\n")
+      ["msgid " <> msgid, "msgstr \"\""] |> string.join("\n")
     }
     NGettextEntry(msgid, msgid_plural) -> {
       [
@@ -93,7 +93,7 @@ fn entry_to_pot_string(entry: EntryData) -> String {
       |> string.join("\n")
     }
     PGettextEntry(msgctxt, msgid) -> {
-      ["msgctxt " <> msgctxt, "msgid " <> msgid, "msgstr " <> msgid]
+      ["msgctxt " <> msgctxt, "msgid " <> msgid, "msgstr \"\""]
       |> string.join("\n")
     }
     NPGettextEntry(msgctxt, msgid, msgid_plural) -> {
